@@ -1,6 +1,6 @@
 # Mosaic API Examples
 
-example apps built with the mosaic api (docs.usemosaic.ai)
+example apps built with the mosaic api ([docs.usemosaic.ai](https://docs.usemosaic.ai))
 
 ## [gdrive-trigger-demo](https://github.com/mosaic-ai-labs/api-examples/tree/main/gdrive-trigger-demo)
 
