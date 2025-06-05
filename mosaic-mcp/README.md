@@ -49,7 +49,7 @@ fastmcp run mosaic-mcp/main.py:mcp \
 
 ---
 
-## 4 · Claude Desktop configuration
+## 4 · Claude Desktop configuration (Remote)
 
 ```jsonc
 {
@@ -59,7 +59,7 @@ fastmcp run mosaic-mcp/main.py:mcp \
       "args": [
         "-y",
         "mcp-remote",
-        "http://localhost:8000/mcp"
+        "http://mcp.usemosaic.ai" // or http://localhost:8000 or whatever you set the port to
       ],
       "headers": {
         "Authorization": "Bearer mk_..."
