@@ -1,3 +1,5 @@
 .env
 downloads/
 service-account.json
+__pycache__/
+.venv/
