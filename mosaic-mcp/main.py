@@ -31,7 +31,7 @@ API_KEY = os.getenv("MOSAIC_API_KEY")
 if not API_KEY:
     raise RuntimeError("Set MOSAIC_API_KEY env var before running the server.")
 
-BASE_URL = os.getenv("MOSAIC_BASE_URL", "http://localhost:8080/api")
+BASE_URL = os.getenv("MOSAIC_BASE_URL", "https://api.usemosaic.ai/api")
 MAX_BYTES = int(os.getenv("MAX_FILE_BYTES", str(5 * 1024 * 1024 * 1024)))  # 5 GiB default
 
 AGENTS: Dict[str, Dict[str, str]] = {
