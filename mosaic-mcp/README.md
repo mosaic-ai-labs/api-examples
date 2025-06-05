@@ -90,7 +90,8 @@ Agents are editable in `main.py` (`AGENTS` dict).
 ## 6 · Updating agents
 Open `mosaic-mcp/main.py`, edit the `AGENTS` dictionary with your own UUIDs
 and friendly names. Restart the server – `list_agents` will reflect the
-changes immediately.
+changes immediately. This is by no means required though; you can just use
+the `create_or_run_agent` tool with a natural-language prompt.
 
 ---
 
