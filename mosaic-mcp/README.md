@@ -6,7 +6,7 @@ videos, run Mosaic agents, poll status, download outputs, and discover the
 available agents – all without hard-coding HTTP details in the prompt.
 
 > [!NOTE]
-> THIS IS THE MCP SERVER; TO USE THE CLIENT READ [THIS SECTION](https://github.com/mosaicml/mosaic-mcp/blob/main/README.md#4-claude-desktop-configuration)
+> THIS IS THE MCP SERVER; TO USE THE CLIENT READ [THIS SECTION](https://github.com/mosaic-ai-labs/api-examples/blob/main/mosaic-mcp/README.md#4-claude-desktop-configuration)
 
 ---
 
