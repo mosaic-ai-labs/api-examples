@@ -44,7 +44,7 @@ echo "MOSAIC_API_KEY=mk_live_xxxxxxxxx" > .env
 fastmcp run mosaic-mcp/main.py:mcp \
   --transport streamable-http \
   --host localhost \
-  --port 8080
+  --port 8000
 ```
 
 ---
@@ -59,7 +59,7 @@ fastmcp run mosaic-mcp/main.py:mcp \
       "args": [
         "-y",
         "mcp-remote",
-        "http://localhost:8080/mcp"
+        "http://localhost:8000/mcp"
       ],
       "headers": {
         "Authorization": "Bearer mk_..."
