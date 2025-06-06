@@ -59,7 +59,7 @@ fastmcp run mosaic-mcp/main.py:mcp \
       "args": [
         "-y",
         "mcp-remote",
-        "http://mcp.usemosaic.ai" // or http://localhost:8000 or whatever you set the port to
+        "https://mcp.usemosaic.ai" // or http://localhost:8000 or whatever you set the port to
       ],
       "headers": {
         "Authorization": "Bearer mk_..."
