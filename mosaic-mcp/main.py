@@ -8,6 +8,7 @@ Start with:
 The server exposes a handful of `@tool`s – check OpenAPI at /docs once running.
 """
 
+import argparse
 import asyncio
 import mimetypes
 import os
@@ -26,10 +27,6 @@ from pydantic import Field
 # ---------------------------------------------------------------------------
 
 load_dotenv()
-
-API_KEY = os.getenv("MOSAIC_API_KEY")
-if not API_KEY:
-    raise RuntimeError("Set MOSAIC_API_KEY env var before running the server.")
 
 BASE_URL = os.getenv("MOSAIC_BASE_URL", "https://api.usemosaic.ai/api")
 MAX_BYTES = int(os.getenv("MAX_FILE_BYTES", str(5 * 1024 * 1024 * 1024)))  # 5 GiB default
@@ -64,20 +61,37 @@ async def client() -> httpx.AsyncClient:
 
 
 # ---------------------------------------------------------------------------
+# Utility to resolve API key (header/arg > env var)
+# ---------------------------------------------------------------------------
+
+def _resolve_key(key: Optional[str]) -> str:
+    """Return a Mosaic API key – prefer explicit arg, fallback to env var, else error."""
+    env_key = os.getenv("MOSAIC_API_KEY")
+    final = key or env_key
+    if not final:
+        raise ToolError(
+            "MOSAIC API key not provided. Pass `api_key` argument or set MOSAIC_API_KEY env var."
+        )
+    return final
+
+
+# ---------------------------------------------------------------------------
 # Helper functions – Mosaic REST calls
 # ---------------------------------------------------------------------------
 
-async def _mosaic_post(path: str, **kwargs) -> httpx.Response:
+async def _mosaic_post(path: str, *, api_key: Optional[str] = None, **kwargs) -> httpx.Response:
     headers = kwargs.pop("headers", {})
-    headers.setdefault("Authorization", f"Bearer {API_KEY}")
+    key = _resolve_key(api_key)
+    headers.setdefault("Authorization", f"Bearer {key}")
     headers.setdefault("Content-Type", "application/json")
     http = await client()
     return await http.post(f"{BASE_URL}{path}", headers=headers, **kwargs)
 
 
-async def _mosaic_get(path: str, **kwargs) -> httpx.Response:
+async def _mosaic_get(path: str, *, api_key: Optional[str] = None, **kwargs) -> httpx.Response:
     headers = kwargs.pop("headers", {})
-    headers.setdefault("Authorization", f"Bearer {API_KEY}")
+    key = _resolve_key(api_key)
+    headers.setdefault("Authorization", f"Bearer {key}")
     http = await client()
     return await http.get(f"{BASE_URL}{path}", headers=headers, **kwargs)
 
@@ -93,7 +107,9 @@ async def _iter_file(path: Path, chunk_size: int = 1024 * 1024):
             yield chunk
 
 
-async def _upload_to_mosaic(file_path: Path, filename: str, content_type: str) -> str:
+async def _upload_to_mosaic(
+    file_path: Path, filename: str, content_type: str, *, api_key: Optional[str] = None
+) -> str:
     size = file_path.stat().st_size
     if size > MAX_BYTES:
         raise ToolError(f"File too large – {size} bytes > {MAX_BYTES} max.")
@@ -101,6 +117,7 @@ async def _upload_to_mosaic(file_path: Path, filename: str, content_type: str) -
     # 1. get signed URL
     resp = await _mosaic_post(
         "/video/get-upload-url",
+        api_key=api_key,
         json={
             "filename": filename,
             "file_size": size,
@@ -122,7 +139,9 @@ async def _upload_to_mosaic(file_path: Path, filename: str, content_type: str) -
         raise ToolError(f"Upload failed ({put_resp.status_code}) – {put_resp.text}")
 
     # 3. finalize upload
-    fin = await _mosaic_post(f"/video/finalize-upload/{data['video_id']}", json={})
+    fin = await _mosaic_post(
+        f"/video/finalize-upload/{data['video_id']}", json={}, api_key=api_key
+    )
     if fin.status_code != 200:
         raise ToolError(f"Finalize failed: {fin.text}")
     return fin.json()["file_uuid"]
@@ -136,6 +155,7 @@ async def _upload_to_mosaic(file_path: Path, filename: str, content_type: str) -
 async def upload_video(
     file: Union[bytes, str] = Field(..., description="Raw bytes OR absolute file path to the video"),
     filename: Optional[str] = Field(None, description="File name (auto-derived when path provided)"),
+    api_key: Optional[str] = Field(None, description="Mosaic API key (optional – overrides env var)"),
 ) -> str:
     """Accepts raw bytes **or** a local file path, uploads to Mosaic, returns `file_id`."""
 
@@ -147,7 +167,7 @@ async def upload_video(
         if filename is None:
             filename = path.name
         content_type = mimetypes.guess_type(filename)[0] or "video/mp4"
-        return await _upload_to_mosaic(path, filename, content_type)
+        return await _upload_to_mosaic(path, filename, content_type, api_key=api_key)
 
     # Otherwise we expect raw bytes
     if len(file) < 1024:  # Mosaic minimum 1 KiB
@@ -166,38 +186,52 @@ async def upload_video(
         tmp_path = Path(tmp.name)
 
     try:
-        return await _upload_to_mosaic(tmp_path, filename, content_type)
+        return await _upload_to_mosaic(tmp_path, filename, content_type, api_key=api_key)
     finally:
         tmp_path.unlink(missing_ok=True)
 
 
 @mcp.tool("upload_video_from_url")
-async def upload_video_from_url(url: str) -> str:
+async def upload_video_from_url(
+    url: str, api_key: Optional[str] = Field(None, description="Mosaic API key (optional)")
+) -> str:
     filename = Path(url).name or "video.mp4"
     content_type = mimetypes.guess_type(filename)[0] or "video/mp4"
 
     http = await client()
-    async with http.stream("GET", url) as resp:
-        if resp.status_code != 200:
-            raise ToolError(f"Download error {resp.status_code}: {url}")
-        total = int(resp.headers.get("Content-Length", 0)) or None
-        if total and total > MAX_BYTES:
-            raise ToolError("File too large to download/upload (Content-Length header)")
+    headers = {"User-Agent": "mosaic-mcp/1.0 (+https://usemosaic.ai)"}
+    tmp_path: Optional[Path] = None
+    try:
+        async with http.stream("GET", url, headers=headers, follow_redirects=True, timeout=httpx.Timeout(120)) as resp:
+            if resp.status_code != 200:
+                raise ToolError(f"Download error {resp.status_code}: {url}")
+            total = int(resp.headers.get("Content-Length", 0)) or None
+            if total and total > MAX_BYTES:
+                raise ToolError("File too large to download/upload (Content-Length header)")
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as tmp:
-            async for chunk in resp.aiter_bytes():
-                tmp.write(chunk)
-            tmp_path = Path(tmp.name)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(filename).suffix) as tmp:
+                async for chunk in resp.aiter_bytes():
+                    tmp.write(chunk)
+                tmp_path = Path(tmp.name)
+    except httpx.HTTPError as e:
+        # Clean up temp file if we created one
+        if tmp_path and tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
+        raise ToolError(f"HTTP error fetching {url}: {e}") from e
 
-    # Size check after download too
+    if tmp_path is None or not tmp_path.exists():
+        raise ToolError("Failed to download video – no data written")
+
+    # Size check after download
     if tmp_path.stat().st_size > MAX_BYTES:
         tmp_path.unlink(missing_ok=True)
         raise ToolError("File exceeds 5 GiB limit after download")
 
     try:
-        return await _upload_to_mosaic(tmp_path, filename, content_type)
+        return await _upload_to_mosaic(tmp_path, filename, content_type, api_key=api_key)
     finally:
-        tmp_path.unlink(missing_ok=True)
+        if tmp_path and tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
 
 
 @mcp.tool("create_or_run_agent")
@@ -207,6 +241,7 @@ async def create_or_run_agent(
     prompt: Optional[str] = None,
     auto: bool = True,
     parameters: Optional[Dict[str, Any]] = None,
+    api_key: Optional[str] = Field(None, description="Mosaic API key (optional)"),
 ) -> str:
     """Kick off Mosaic processing.
 
@@ -230,15 +265,17 @@ async def create_or_run_agent(
     if parameters:
         payload["parameters"] = parameters
 
-    resp = await _mosaic_post("/run-agent", json=payload)
+    resp = await _mosaic_post("/run-agent", json=payload, api_key=api_key)
     if resp.status_code != 200:
         raise ToolError(f"run-agent failed: {resp.text}")
     return resp.json()["agent_run_id"]
 
 
 @mcp.tool("get_run_status")
-async def get_run_status(run_id: str) -> Dict[str, Any]:
-    resp = await _mosaic_get(f"/get-agent-run-simple/{run_id}")
+async def get_run_status(
+    run_id: str, api_key: Optional[str] = Field(None, description="Mosaic API key (optional)")
+) -> Dict[str, Any]:
+    resp = await _mosaic_get(f"/get-agent-run-simple/{run_id}", api_key=api_key)
     if resp.status_code != 200:
         raise ToolError(resp.text)
     data = resp.json()
@@ -246,8 +283,10 @@ async def get_run_status(run_id: str) -> Dict[str, Any]:
 
 
 @mcp.tool("get_output_urls")
-async def get_output_urls(run_id: str) -> List[str]:
-    resp = await _mosaic_get(f"/get-agent-run-outputs/{run_id}")
+async def get_output_urls(
+    run_id: str, api_key: Optional[str] = Field(None, description="Mosaic API key (optional)")
+) -> List[str]:
+    resp = await _mosaic_get(f"/get-agent-run-outputs/{run_id}", api_key=api_key)
     if resp.status_code != 200:
         raise ToolError(resp.text)
     outs = resp.json().get("outputs", [])
@@ -268,6 +307,8 @@ async def list_agents() -> List[Dict[str, str]]:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # By default FastMCP uses STDIO transport which ignores host/port.
-    # Call without extra kwargs; use CLI for http/sse transports.
-    mcp.run()
+    transport = os.getenv("MCP_TRANSPORT", "streamable-http")
+    host = os.getenv("MCP_HOST", "0.0.0.0")
+    port = int(os.getenv("MCP_PORT", "8000"))
+
+    mcp.run(transport=transport, host=host, port=port, path="/")

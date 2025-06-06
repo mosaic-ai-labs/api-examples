@@ -39,5 +39,10 @@ Try it out by adding the following to your Claude Desktop config:
 }
 ```
 
+## [create-shorts-post-to-socials](https://github.com/mosaic-ai-labs/api-examples/tree/main/create-shorts-post-to-socials)
+
+A web app that connects to Google Drive & Dropbox, processes videos through Mosaic to create social media shorts, and outputs the results.
+Adding support for directly posting to social media platforms is on the roadmap and will be added within the next few weeks.
+
 
 
