@@ -45,4 +45,6 @@ A web app that connects to Google Drive & Dropbox, processes videos through Mosa
 Adding support for directly posting to social media platforms is on the roadmap and will be added within the next few weeks.
 
 
+## [vercel-ai-sdk-example](https://github.com/mosaic-ai-labs/api-examples/tree/main/vercel-ai-sdk-example)
 
+A demo showcasing the [Vercel AI SDK](https://ai-sdk.dev/)'s code generation capabilities combined with Mosaic's AI-powered video editing in the same app.
