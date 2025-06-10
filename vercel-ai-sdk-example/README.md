@@ -30,17 +30,9 @@ A powerful demo showcasing the [Vercel AI SDK](https://ai-sdk.dev/)'s code gener
 
 ## Deploy to Railway
 
-This project includes a `railway.toml` configuration for easy deployment:
-
 1. Connect your GitHub repo to Railway
-2. Set the following environment variables in the Railway dashboard:
-   - `OPENAI_API_KEY`: Your OpenAI API key
-   - `MOSAIC_API_KEY`: Your Mosaic API key  
-3. Deploy! Railway will automatically:
-   - Use Node.js 18 and pnpm
-   - Build with `pnpm build`
-   - Start with `pnpm start`
-   - Configure health checks and restart policies
+2. Set environment variables: `OPENAI_API_KEY` and `MOSAIC_API_KEY`
+3. Deploy!
 
 ## Technical Implementation
 
