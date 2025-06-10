@@ -1,43 +1,5 @@
 [build]
-# Use Node.js 18 for compatibility with Next.js 15 and AI SDK
 builder = "NIXPACKS"
 
 [deploy]
-# Next.js production start command
-startCommand = "pnpm start"
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10
-
-# Environment variables required for the app
-[env]
-# These need to be set in Railway dashboard
-OPENAI_API_KEY = { required = true }
-MOSAIC_API_KEY = { required = true }
-
-# Next.js optimizations
-NODE_ENV = "production"
-NEXT_TELEMETRY_DISABLED = "1"
-
-[nixpacks]
-# Use pnpm instead of npm for faster builds
-provider = "node"
-
-[build.env]
-# Build-time environment variables
-NODE_ENV = "production"
-
-# Specify the exact Node version for consistency
-[build.nixpacks]
-nodeVersion = "18"
-
-# Health check configuration
-[healthcheck]
-path = "/"
-interval = 30
-timeout = 10
-retries = 3
-
-# Service configuration
-[service]
-# Use a sensible port (Railway will override this)
-port = 3000 
+startCommand = "pnpm start" 
