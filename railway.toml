@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd vercel-ai-sdk-example && npm install -g pnpm && pnpm install && pnpm build"
+buildCommand = "cd vercel-ai-sdk-example && npm install -g pnpm && npx pnpm install && npx pnpm build"
 
 [deploy]
-startCommand = "cd vercel-ai-sdk-example && pnpm start" 
+startCommand = "cd vercel-ai-sdk-example && npx pnpm start" 
