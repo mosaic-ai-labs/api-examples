@@ -1,0 +1,6 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "cd vercel-ai-sdk-example && pnpm build"
+
+[deploy]
+startCommand = "cd vercel-ai-sdk-example && pnpm start" 
